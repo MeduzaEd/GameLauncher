@@ -93,7 +93,7 @@ namespace SimpleLauncher
                 var repo = uri.Segments[2].TrimEnd('/');
 
                 var githubClient = new GitHubClient(new ProductHeaderValue("LauncherClient"));
-                githubClient.Credentials = new Credentials("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");
+                githubClient.Credentials = new Credentials("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");
                 var repoContent = await githubClient.Repository.Content.GetAllContents(user, repo, path);
 
                 _ProgressBar.Maximum = repoContent.Count(); // Устанавливаем максимальное значение прогресс-бара
@@ -126,58 +126,67 @@ namespace SimpleLauncher
         }
 
 
-          static async Task DownloadFile(string downloadUrl, string filePath, ProgressBar progressBar, Label pathLabel)
+      static async Task DownloadFile(string downloadUrl, string filePath, ProgressBar progressBar, Label pathLabel)
+        {
+            try
             {
-                try
+                var fullFilePath = Path.Combine(InstallPath, filePath.Replace('/', '\\'));
+
+                // Проверка, существует ли файл
+                if (File.Exists(fullFilePath))
                 {
-                    using (var httpClient = new HttpClient())
+                    pathLabel.Text = $"Файл уже существует: {fullFilePath}";
+                    return;
+                }
+
+                using (var httpClient = new HttpClient())
+                {
+                    using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
                     {
-                        using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                        response.EnsureSuccessStatusCode();
+
+                        pathLabel.Text = $"Установка: {fullFilePath}";
+
+                        if (!Directory.Exists(Path.GetDirectoryName(fullFilePath)))
                         {
-                            response.EnsureSuccessStatusCode();
+                            Directory.CreateDirectory(Path.GetDirectoryName(fullFilePath));
+                        }
 
-                            var fullFilePath = Path.Combine(InstallPath, filePath.Replace('/', '\\'));
-                            pathLabel.Text = $"Установка: {fullFilePath}";
-
-                            if (!Directory.Exists(Path.GetDirectoryName(fullFilePath)))
+                        using (var fileStream = new FileStream(fullFilePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+                        {
+                            using (var contentStream = await response.Content.ReadAsStreamAsync())
                             {
-                                Directory.CreateDirectory(Path.GetDirectoryName(fullFilePath));
-                            }
+                                var buffer = new byte[4096];
+                                var isMoreToRead = true;
 
-                            using (var fileStream = new FileStream(fullFilePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
-                            {
-                                using (var contentStream = await response.Content.ReadAsStreamAsync())
+                                do
                                 {
-                                    var buffer = new byte[4096];
-                                    var isMoreToRead = true;
-
-                                    do
+                                    var read = await contentStream.ReadAsync(buffer, 0, buffer.Length);
+                                    if (read == 0)
                                     {
-                                        var read = await contentStream.ReadAsync(buffer, 0, buffer.Length);
-                                        if (read == 0)
-                                        {
-                                            isMoreToRead = false;
-                                        }
-                                        else
-                                        {
-                                            await fileStream.WriteAsync(buffer, 0, read);
+                                        isMoreToRead = false;
+                                    }
+                                    else
+                                    {
+                                        await fileStream.WriteAsync(buffer, 0, read);
 
-                                            // Здесь вы можете обновить прогресс-бар, если нужно
-
-                                            pathLabel.Text = $"Успешно Установлен: {fullFilePath}";
-                                        }
-                                    } while (isMoreToRead);
-                                }
+                                        // Здесь вы можете обновить прогресс-бар, если нужно
+                                    }
+                                } while (isMoreToRead);
                             }
                         }
+
+                        pathLabel.Text = $"Успешно Установлен: {fullFilePath}";
                     }
                 }
-                catch (Exception ex)
-                {
-                    progressBar.Visible = false;
-                    pathLabel.Text = $"Ошибка при скачивании файла {filePath}: {ex.Message}";
-                }
             }
+            catch (Exception ex)
+            {
+                progressBar.Visible = false;
+                pathLabel.Text = $"Ошибка при скачивании файла {filePath}: {ex.Message}";
+            }
+        }
+
 
 
         static void UpdateProgressBar(ProgressBar progressBar, long bytesRead, long totalBytes)
