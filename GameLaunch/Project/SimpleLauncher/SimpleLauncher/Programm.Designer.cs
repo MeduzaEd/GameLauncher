@@ -47,9 +47,14 @@ namespace SimpleLauncher
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1024, 600);
+           // this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(1024, 600);   
+
             this.Text = "Simple-Launcher";
+
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false; // Запрещает максимизацию
+            this.MinimizeBox = false; // Запрещает минимизацию
             LablesInit();
             ButtonsInit();
         }
@@ -60,6 +65,8 @@ namespace SimpleLauncher
         #endregion
 
         #region Logic
+
+        #region Select Folder
         private void SelectInstallPath(object sender, EventArgs e)
         {
             FolderBrowserDialog _Dialog = new FolderBrowserDialog();
@@ -72,28 +79,28 @@ namespace SimpleLauncher
                
             }
         }
+        #endregion
+        #region Install
         private async void Install(object sender, EventArgs e)
         {
-            await DownloadRepositoryFiles("/");
+            _ProgressBar.Value = 0;
+            await Task.WhenAll(DownloadRepositoryFiles("/"));
+             _PathLabel.Text = "Готово.";
+            _ProgressBar.Maximum =1;
+             _ProgressBar.Value = 1;
         }
-   
-   
+        #endregion
 
         static async Task DownloadRepositoryFiles(string path)
         {
             try
             {
-                _ProgressBar.Visible = true;
-
-
-
-
                 var uri = new Uri(_RepoUrl);
                 var user = uri.Segments[1].TrimEnd('/');
                 var repo = uri.Segments[2].TrimEnd('/');
 
                 var githubClient = new GitHubClient(new ProductHeaderValue("LauncherClient"));
-                githubClient.Credentials = new Credentials("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");
+                githubClient.Credentials = new Credentials("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");
                 var repoContent = await githubClient.Repository.Content.GetAllContents(user, repo, path);
 
                 _ProgressBar.Maximum = repoContent.Count(); // Устанавливаем максимальное значение прогресс-бара
@@ -115,18 +122,18 @@ namespace SimpleLauncher
 
                 await Task.WhenAll(tasks);
 
-                _PathLabel.Text = "Все файлы успешно скачаны.";
-                _ProgressBar.Visible = false;
+                _PathLabel.Text = "Успешно.";
+               
             }
             catch (Exception ex)
             {
-                _ProgressBar.Visible = false;
-                _PathLabel.Text = $"Ошибка при скачивании репозитория: {ex.Message}";
+                //_ProgressBar.Visible = false;
+                _PathLabel.Text = $"Ошибка: {ex.Message}";
             }
         }
 
 
-      static async Task DownloadFile(string downloadUrl, string filePath, ProgressBar progressBar, Label pathLabel)
+        static async Task DownloadFile(string downloadUrl, string filePath, ProgressBar progressBar, Label pathLabel)
         {
             try
             {
@@ -135,7 +142,7 @@ namespace SimpleLauncher
                 // Проверка, существует ли файл
                 if (File.Exists(fullFilePath))
                 {
-                    pathLabel.Text = $"Файл уже существует: {fullFilePath}";
+                    pathLabel.Text = $"Уже существует: {fullFilePath}";
                     return;
                 }
 
@@ -152,12 +159,15 @@ namespace SimpleLauncher
                             Directory.CreateDirectory(Path.GetDirectoryName(fullFilePath));
                         }
 
+                        var totalBytes = response.Content.Headers.ContentLength ?? -1;
+
                         using (var fileStream = new FileStream(fullFilePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
                         {
                             using (var contentStream = await response.Content.ReadAsStreamAsync())
                             {
                                 var buffer = new byte[4096];
                                 var isMoreToRead = true;
+                                var totalRead = 0L;
 
                                 do
                                 {
@@ -169,8 +179,8 @@ namespace SimpleLauncher
                                     else
                                     {
                                         await fileStream.WriteAsync(buffer, 0, read);
-
-                                        // Здесь вы можете обновить прогресс-бар, если нужно
+                                        totalRead += read;
+                                        UpdateProgressBar(progressBar, totalRead, totalBytes);
                                     }
                                 } while (isMoreToRead);
                             }
@@ -182,12 +192,9 @@ namespace SimpleLauncher
             }
             catch (Exception ex)
             {
-                progressBar.Visible = false;
-                pathLabel.Text = $"Ошибка при скачивании файла {filePath}: {ex.Message}";
+                pathLabel.Text = $"Ошибка {filePath}: {ex.Message}";
             }
         }
-
-
 
         static void UpdateProgressBar(ProgressBar progressBar, long bytesRead, long totalBytes)
         {
@@ -197,6 +204,7 @@ namespace SimpleLauncher
                 progressBar.Value = percentage;
             }
         }
+
 
         static async Task WriteAllBytesAsync(string path, byte[] bytes)
         {
@@ -218,17 +226,18 @@ namespace SimpleLauncher
             _PathLabel.ForeColor = System.Drawing.Color.DarkGray;
             _PathLabel.Font = new System.Drawing.Font("Calibri", 12);
             _PathLabel.AutoSize = true;
-            _PathLabel.Location = new System.Drawing.Point(210, 560);
+            _PathLabel.Location = new System.Drawing.Point(215, 560);
             Controls.Add(_PathLabel);
             #region Progress Bar
 
-            _ProgressBar.Location = new Point(12, 500);
-            _ProgressBar.Size = new Size(1000, 35);
+            _ProgressBar.Location = new Point(210, 550);
+            _ProgressBar.Size = new Size(600, 40);
             _ProgressBar.ForeColor = Color.DarkCyan;
             _ProgressBar.Minimum = 0;
             _ProgressBar.Maximum = 100;
+            _ProgressBar.Value=100;
             _ProgressBar.Step = 1;
-            _ProgressBar.Visible = false;
+            //_ProgressBar.Visible = false;
             Controls.Add(_ProgressBar);
             #endregion
         }
