@@ -80,18 +80,22 @@ namespace SimpleLauncher
             }
         }
         #endregion
+
         #region Install
         private async void Install(object sender, EventArgs e)
         {
+            _InstallToPathButton.Enabled=false;
+            _InstallToPathButton.Text="Installing...";
             _ProgressBar.Value = 0;
             await Task.WhenAll(DownloadRepositoryFiles("/"));
              _PathLabel.Text = "Готово.";
-            _ProgressBar.Maximum =1;
-             _ProgressBar.Value = 1;
+             _ProgressBar.Value = _ProgressBar.Maximum;
+            _InstallToPathButton.Text="Install";
+            _InstallToPathButton.Enabled=true;
         }
         #endregion
 
-        static async Task DownloadRepositoryFiles(string path)
+        async Task DownloadRepositoryFiles(string path)
         {
             try
             {
@@ -100,7 +104,7 @@ namespace SimpleLauncher
                 var repo = uri.Segments[2].TrimEnd('/');
 
                 var githubClient = new GitHubClient(new ProductHeaderValue("LauncherClient"));
-                githubClient.Credentials = new Credentials("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");
+                githubClient.Credentials = new Credentials("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");
                 var repoContent = await githubClient.Repository.Content.GetAllContents(user, repo, path);
 
                 _ProgressBar.Maximum = repoContent.Count(); // Устанавливаем максимальное значение прогресс-бара
@@ -110,7 +114,7 @@ namespace SimpleLauncher
                     {
                         if (item.Type == ContentType.File)
                         {
-                            return DownloadFile(item.DownloadUrl, item.Path,_ProgressBar, _PathLabel);
+                            return DownloadFile(item.DownloadUrl, item.Path, _ProgressBar, _PathLabel);
                         }
                         else if (item.Type == ContentType.Dir)
                         {
@@ -123,29 +127,45 @@ namespace SimpleLauncher
                 await Task.WhenAll(tasks);
 
                 _PathLabel.Text = "Успешно.";
-               
+
             }
             catch (Exception ex)
             {
-                //_ProgressBar.Visible = false;
+                OnError(ex.Message.ToString());
                 _PathLabel.Text = $"Ошибка: {ex.Message}";
             }
         }
 
 
-        static async Task DownloadFile(string downloadUrl, string filePath, ProgressBar progressBar, Label pathLabel)
+
+         async Task DownloadFile(string downloadUrl, string filePath, ProgressBar progressBar, Label pathLabel)
         {
             try
             {
-                var fullFilePath = Path.Combine(InstallPath, filePath.Replace('/', '\\'));
+                 var fullFilePath = Path.Combine(InstallPath, filePath.Replace('/', '\\'));
+                // Проверка, существует ли папка
+                if (Directory.Exists(fullFilePath))
+                {
+                    pathLabel.Text = $"Папка уже существует: {fullFilePath}";
+                    return;
+                }
 
                 // Проверка, существует ли файл
                 if (File.Exists(fullFilePath))
                 {
-                    pathLabel.Text = $"Уже существует: {fullFilePath}";
-                    return;
-                }
+                  var localFileContents = await Task.Run(() => File.ReadAllText(fullFilePath));
+                    var remoteFileContents = await DownloadStringAsync(downloadUrl);
 
+                    if (localFileContents == remoteFileContents)
+                    {
+                        pathLabel.Text = $"Файл уже существует и совпадает: {fullFilePath}";
+                        return;
+                    }
+                    else
+                    {
+                        pathLabel.Text = $"Файл существует, но не совпадает. Замена: {fullFilePath}";
+                    }
+                }
                 using (var httpClient = new HttpClient())
                 {
                     using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
@@ -191,18 +211,20 @@ namespace SimpleLauncher
                 }
             }
             catch (Exception ex)
-            {
+            { 
+                OnError(ex.Message.ToString());
                 pathLabel.Text = $"Ошибка {filePath}: {ex.Message}";
+                //return;
             }
         }
 
         static void UpdateProgressBar(ProgressBar progressBar, long bytesRead, long totalBytes)
         {
-            if (totalBytes > 0)
-            {
-                var percentage = (int)((bytesRead * 100) / totalBytes);
-                progressBar.Value = percentage;
-            }
+            //if (totalBytes > 0)
+            //{
+                //var percentage = (int)((bytesRead * 100) / totalBytes);
+                //progressBar.Value = percentage;
+            //}
         }
 
 
@@ -213,7 +235,13 @@ namespace SimpleLauncher
                 await fileStream.WriteAsync(bytes, 0, bytes.Length);
             }
         }
-   
+        async Task<string> DownloadStringAsync(string url)
+        {
+            using (var httpClient = new HttpClient())
+            {
+                return await httpClient.GetStringAsync(url);
+            }
+        }
 
         #endregion
 
@@ -247,6 +275,7 @@ namespace SimpleLauncher
         #region UI
         private void ButtonsInit()
         {
+
             #region Select Path
             _SelectPathButton.Location = new Point(5, 545);
             _SelectPathButton.Font= new System.Drawing.Font("Calibri", 14);
@@ -277,6 +306,22 @@ namespace SimpleLauncher
             #endregion
         }
 
+
+        #endregion
+
+        #region Error UI Instance
+    
+        public void OnError(string EX)
+        {
+            Label _ErrorLabel=new Label();
+            _ErrorLabel.Text = $"Error:{EX}";
+            _ErrorLabel.BackColor = Color.Red;
+            _ErrorLabel.ForeColor = System.Drawing.Color.GreenYellow;
+            _ErrorLabel.Font = new System.Drawing.Font("Calibri", 12);
+            _ErrorLabel.AutoSize = true;
+            _ErrorLabel.Location = new System.Drawing.Point(25, 25);
+            Controls.Add(_ErrorLabel);
+        }
 
         #endregion
     }
