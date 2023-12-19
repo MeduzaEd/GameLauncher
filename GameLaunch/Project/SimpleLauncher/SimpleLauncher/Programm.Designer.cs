@@ -104,7 +104,7 @@ namespace SimpleLauncher
                 var repo = uri.Segments[2].TrimEnd('/');
 
                 var githubClient = new GitHubClient(new ProductHeaderValue("LauncherClient"));
-                githubClient.Credentials = new Credentials("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");
+                githubClient.Credentials = new Credentials("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");
                 var repoContent = await githubClient.Repository.Content.GetAllContents(user, repo, path);
 
                 _ProgressBar.Maximum = repoContent.Count(); // Устанавливаем максимальное значение прогресс-бара
