@@ -50,7 +50,7 @@ namespace SimpleLauncher
            // this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1024, 600);   
 
-            this.Text = "Simple-Launcher";
+            this.Text = "SUNLauncher";
 
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false; // Запрещает максимизацию
@@ -104,7 +104,7 @@ namespace SimpleLauncher
                 var repo = uri.Segments[2].TrimEnd('/');
 
                 var githubClient = new GitHubClient(new ProductHeaderValue("LauncherClient"));
-                githubClient.Credentials = new Credentials("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");
+                githubClient.Credentials = new Credentials("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");
                 var repoContent = await githubClient.Repository.Content.GetAllContents(user, repo, path);
 
                 _ProgressBar.Maximum = repoContent.Count(); // Устанавливаем максимальное значение прогресс-бара
